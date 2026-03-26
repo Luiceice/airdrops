@@ -1,3 +1,4 @@
+require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const { v4: uuidv4 } = require("uuid");
@@ -863,8 +864,8 @@ app.post("/api/orders", (req, res) => {
 const baseAmount = buildOrderAmount(plan);
 
   // ✅ 关键：生成唯一尾数（0.0001 ~ 0.0099）
-  const uniqueOffset = Number((Math.random() * 0.009 + 0.0001).toFixed(4));
-  const amountUsdt = Number((baseAmount + uniqueOffset).toFixed(4));
+  const uniqueOffset = Number((Math.random() * 0.009 + 0.001).toFixed(3));
+  const amountUsdt = Number((baseAmount + uniqueOffset).toFixed(3));
 
   console.log("new order amount:", amountUsdt, "plan:", req.body?.plan);
 
@@ -1215,9 +1216,9 @@ app.get("/api/health", (req, res) => {
 
 /* ================= 启动 ================= */
 
-app.listen(PORT, async () => {
+app.listen(PORT, '0.0.0.0', async () => {
   console.log("🔥 NEW SERVER FILE LOADED");
-  console.log("🚀 http://127.0.0.1:" + PORT);
+  console.log("🚀 Server running on port " + PORT);
 
   try {
     await crawl(true);
