@@ -1,12 +1,12 @@
 {
   "name": "backend",
   "version": "1.0.0",
-  "main": "server.stable.js",
+  "main": "server.js",
   "scripts": {
-    "dev": "node server.stable.js",
-    "start": "node server.stable.js",
-    "postinstall": "npx playwright install --with-deps"
-  },
+  "dev": "node server.js",
+  "start": "node server.js",
+  "postinstall": "npx playwright install --with-deps"
+},
   "dependencies": {
     "axios": "^1.13.6",
     "better-sqlite3": "^11.7.0",
