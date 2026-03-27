@@ -165,14 +165,12 @@ const txHash = String(tx.hash || "");
 const txTimeMs = Number(tx.timeStamp || 0) * 1000;
 const amount = formatTokenAmount(tx.value, tx.tokenDecimal);
 const expireMs = createdAtMs + 10 * 60 * 1000;
-const expectedFrom = String(order.expectedFrom || "").trim().toLowerCase();
 
     if (
       to === PAYMENT_ADDRESS.toLowerCase() &&
       Math.abs(Number(amount) - Number(order.amountUsdt)) < 0.002 &&
       txTimeMs >= createdAtMs &&
       txTimeMs <= expireMs &&
-      (!expectedFrom || from === expectedFrom) &&
       !txAlreadyUsed(txHash, order.orderId)
     ) {
       return tx;
@@ -187,23 +185,15 @@ async function scanPendingOrders() {
     (o) => o.status === "pending"
   );
 
-  // if (pendingOrders.length > 0) {
-  // console.log("🔥 scanPendingOrders running, pending =", pendingOrders.length);
-// }
+  if (pendingOrders.length > 0) {
+    console.log("🔎 scanPendingOrders pending =", pendingOrders.length);
+  }
 
   for (const order of pendingOrders) {
-    console.log(
-      "🧾 checking order:",
-      order.orderId,
-      order.amountUsdt,
-      order.status
-    );
-
     try {
       const tx = await findMatchingTransfer(order);
 
       if (!tx) {
-        console.log("❌ no matching tx for", order.orderId);
         continue;
       }
 
@@ -236,17 +226,10 @@ function activateOrderAndMembership(order, txHash, payerAddress) {
   const sessionId = order.sessionId;
 
   if (sessionId) {
-    let endsAt;
-
-    const amount = Number(order.amountUsdt);
-
-    if (amount >= 39.99) {
-      endsAt = dayjs().add(1, "year").toISOString();
-    } else if (amount >= 4.99) {
-      endsAt = dayjs().add(30, "day").toISOString();
-    } else {
-      endsAt = dayjs().add(30, "day").toISOString();
-    }
+    const endsAt =
+      order.plan === "yearly"
+        ? dayjs().add(1, "year").toISOString()
+        : dayjs().add(30, "day").toISOString();
 
     members.set(sessionId, { active: true, endsAt });
   }
@@ -273,7 +256,7 @@ function buildOrderAmount(plan) {
 // 下面才是各种 app.use / app.post / app.get
 
 
-const FREE_DAILY_LIMIT = 5;
+const FREE_DAILY_LIMIT = 3;
 const QUERY_MAX_PROJECTS = 18;
 const FREE_VISIBLE_COUNT = 4;
 const CRAWLER_REFRESH_MS = 30 * 60 * 1000;
@@ -1108,6 +1091,7 @@ app.post("/api/session", (req, res) => {
   const id = uuidv4();
   sessions.set(id, { usage: {} });
   members.set(id, { active: false, endsAt: null });
+  saveData();
   res.json({ sessionId: id });
 });
 
