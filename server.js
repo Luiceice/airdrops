@@ -270,7 +270,7 @@ function buildOrderAmount(plan) {
   const base = plan === "yearly" ? 39.99 : 4.99;
 
   // 保留三位小数，钱包更容易直接支付
-  const tail = Math.floor(Math.random() * 9);+1
+  const tail = Math.floor(Math.random() * 9) + 1;
   const amount = Number((base - tail / 1000).toFixed(3));
 
   console.log("buildOrderAmount result =", amount);
