@@ -196,8 +196,14 @@ async function scanPendingOrders() {
       const tx = await findMatchingTransfer(order);
 
       if (!tx) {
-        continue;
-      }
+  console.log("❌ no matching tx for order =", {
+    orderId: order.orderId,
+    amountUsdt: order.amountUsdt,
+    expectedFrom: order.expectedFrom,
+    createdAt: order.createdAt,
+  });
+  continue;
+}
 
       if (order.status === "pending" && tx && tx.hash) {
         activateOrderAndMembership(order, tx.hash, tx.from);
@@ -1175,7 +1181,15 @@ const safePlan = req.body?.plan === "yearly" ? "yearly" : "monthly";
     createdAt: nowIso(),
   };
 
-  orders.set(order.orderId, order);
+console.log("🧾 new order =", {
+  orderId: order.orderId,
+  sessionId: order.sessionId,
+  amountUsdt: order.amountUsdt,
+  expectedFrom: order.expectedFrom,
+  createdAt: order.createdAt,
+});
+ 
+ orders.set(order.orderId, order);
   saveData();
   res.json(order);
 });
