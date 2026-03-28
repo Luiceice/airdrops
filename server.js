@@ -113,7 +113,7 @@ function amountMatches(a, b) {
   if (!isFinite(x) || !isFinite(y)) return false;
 
   // 允许 ±0.002 USDT 误差（你现在尾数是 0.001 级别）
-  return Math.abs(x - y) <= 0.02;
+  return Math.abs(x - y) <= 0.002;
 }
 
 function txAlreadyUsed(txHash, currentOrderId) {
@@ -172,7 +172,6 @@ async function findMatchingTransfer(order) {
       amountMatches(amount, order.amountUsdt) &&
       txTimeMs >= createdAtMs &&
       txTimeMs <= expireMs &&
-      (!expectedFrom || from === expectedFrom) &&
       !txAlreadyUsed(txHash, order.orderId)
     ) {
       return tx;
@@ -270,9 +269,9 @@ function ensureMembershipForPaidOrder(order) {
 function buildOrderAmount(plan) {
   const base = plan === "yearly" ? 39.99 : 4.99;
 
-  // 保留两位小数，钱包更容易直接支付
-  const tail = Math.floor(Math.random() * 9);
-  const amount = Number((base - tail / 100).toFixed(2));
+  // 保留三位小数，钱包更容易直接支付
+  const tail = Math.floor(Math.random() * 9);+1
+  const amount = Number((base - tail / 1000).toFixed(3));
 
   console.log("buildOrderAmount result =", amount);
 
