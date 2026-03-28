@@ -154,23 +154,25 @@ async function findMatchingTransfer(order) {
 
   const createdAtMs = new Date(order.createdAt).getTime();
   const orderAgeMs = Date.now() - createdAtMs;
-if (orderAgeMs > 10 * 60 * 1000) return null;
+  if (orderAgeMs > 30 * 60 * 1000) return null;
 
   for (let i = 0; i < list.length; i++) {
     const tx = list[i];
 
     const from = String(tx.from || "").toLowerCase();
-const to = String(tx.to || "").toLowerCase();
-const txHash = String(tx.hash || "");
-const txTimeMs = Number(tx.timeStamp || 0) * 1000;
-const amount = formatTokenAmount(tx.value, tx.tokenDecimal);
-const expireMs = createdAtMs + 10 * 60 * 1000;
+    const to = String(tx.to || "").toLowerCase();
+    const txHash = String(tx.hash || "");
+    const txTimeMs = Number(tx.timeStamp || 0) * 1000;
+    const amount = formatTokenAmount(tx.value, tx.tokenDecimal);
+    const expireMs = createdAtMs + 30 * 60 * 1000;
+    const expectedFrom = String(order.expectedFrom || "").toLowerCase();
 
     if (
       to === PAYMENT_ADDRESS.toLowerCase() &&
-      Math.abs(Number(amount) - Number(order.amountUsdt)) < 0.002 &&
+      amountMatches(amount, order.amountUsdt) &&
       txTimeMs >= createdAtMs &&
       txTimeMs <= expireMs &&
+      (!expectedFrom || from === expectedFrom) &&
       !txAlreadyUsed(txHash, order.orderId)
     ) {
       return tx;
@@ -239,15 +241,32 @@ function activateOrderAndMembership(order, txHash, payerAddress) {
   return order;
 }
 
+function ensureMembershipForPaidOrder(order) {
+  if (!order?.sessionId) return;
+
+  const member = members.get(order.sessionId);
+  const stillActive =
+    !!member?.active && !!member?.endsAt && !dayjs(member.endsAt).isBefore(dayjs());
+
+  if (stillActive) return;
+
+  const baseTime = order.paidAt ? dayjs(order.paidAt) : dayjs();
+  const endsAt =
+    order.plan === "yearly"
+      ? baseTime.add(1, "year").toISOString()
+      : baseTime.add(30, "day").toISOString();
+
+  members.set(order.sessionId, { active: true, endsAt });
+  saveData();
+}
+
 // ✅ 放在这里（全局函数）
 function buildOrderAmount(plan) {
-  const base = plan === "yearly" ? 39.99 : 5.0;
+  const base = plan === "yearly" ? 39.99 : 4.99;
 
-  // 🔥 只生成 0.001 ~ 0.009 的尾差
-  const tail = Math.floor(Math.random() * 9) + 1;
-
-  // 🔥 强制三位小数
-  const amount = Number((base - tail / 1000).toFixed(3));
+  // 保留两位小数，钱包更容易直接支付
+  const tail = Math.floor(Math.random() * 9);
+  const amount = Number((base - tail / 100).toFixed(2));
 
   console.log("buildOrderAmount result =", amount);
 
@@ -1160,29 +1179,77 @@ const safePlan = req.body?.plan === "yearly" ? "yearly" : "monthly";
   saveData();
   res.json(order);
 });
-app.get("/api/orders/:id", (req, res) => {
+app.get("/api/orders/:id", async (req, res) => {
   const order = orders.get(req.params.id);
 
   if (!order) {
     return res.status(404).json({ error: "Order not found" });
   }
 
-  const member = order.sessionId
-    ? members.get(order.sessionId) || { active: false, endsAt: null }
+  try {
+    if (order.status === "pending") {
+      const tx = await findMatchingTransfer(order);
+
+      if (tx && tx.hash) {
+        activateOrderAndMembership(order, tx.hash, tx.from);
+      }
+    } else if (order.status === "paid") {
+      ensureMembershipForPaidOrder(order);
+    }
+  } catch (err) {
+    console.error("order status refresh failed:", order.orderId, err.message);
+  }
+
+  const freshOrder = orders.get(req.params.id) || order;
+  const member = freshOrder.sessionId
+    ? members.get(freshOrder.sessionId) || { active: false, endsAt: null }
     : { active: false, endsAt: null };
 
   res.json({
-    ...order,
+    ...freshOrder,
     membership: {
       active: !!member.active,
       expiry: member.endsAt || null,
     },
   });
 });
-app.post("/api/orders/:id/confirm", (req, res) => {
-  return res.status(403).json({
-    error: "Manual confirmation disabled",
-  });
+app.post("/api/orders/:id/confirm", async (req, res) => {
+  const order = orders.get(req.params.id);
+
+  if (!order) {
+    return res.status(404).json({ error: "Order not found" });
+  }
+
+  try {
+    if (order.status === "pending") {
+      const tx = await findMatchingTransfer(order);
+
+      if (tx && tx.hash) {
+        activateOrderAndMembership(order, tx.hash, tx.from);
+      }
+    }
+
+    const freshOrder = orders.get(req.params.id) || order;
+
+    if (freshOrder.status === "paid") {
+      ensureMembershipForPaidOrder(freshOrder);
+    }
+
+    const member = freshOrder.sessionId
+      ? members.get(freshOrder.sessionId) || { active: false, endsAt: null }
+      : { active: false, endsAt: null };
+
+    return res.json({
+      ...freshOrder,
+      membership: {
+        active: !!member.active,
+        expiry: member.endsAt || null,
+      },
+    });
+  } catch (err) {
+    console.error("manual confirm failed:", order.orderId, err.message);
+    return res.status(500).json({ error: "Confirm failed" });
+  }
 });
 /* ================= 查询核心 ================= */
 
@@ -1415,7 +1482,7 @@ app.listen(PORT, async () => {
   console.log("🔥 NEW SERVER FILE LOADED");
   console.log("🚀 http://127.0.0.1:" + PORT);
 
-  setInterval(scanPendingOrders, 5000);
+  setInterval(scanPendingOrders, 2000);
 
   try {
     await crawl(true);
