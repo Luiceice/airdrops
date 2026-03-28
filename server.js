@@ -1088,11 +1088,29 @@ async function crawl(force = false) {
 /* ================= API ================= */
 
 app.post("/api/session", (req, res) => {
-  const id = uuidv4();
-  sessions.set(id, { usage: {} });
-  members.set(id, { active: false, endsAt: null });
-  saveData();
-  res.json({ sessionId: id });
+  const deviceId = String(req.headers["x-device-id"] || "").trim();
+
+  if (deviceId) {
+    for (const [id, session] of sessions.entries()) {
+      if (session?.deviceId === deviceId) {
+        if (!members.has(id)) {
+          members.set(id, { active: false, endsAt: null });
+          saveData();
+        }
+        return res.json({ sessionId: id });
+      }
+    }
+  }
+
+  const id = uuidv4();
+  sessions.set(id, {
+    usage: {},
+    deviceId: deviceId || null,
+  });
+  members.set(id, { active: false, endsAt: null });
+  saveData();
+
+  res.json({ sessionId: id });
 });
 
 app.get("/api/membership/:id", (req, res) => {
