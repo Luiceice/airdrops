@@ -1,4 +1,4 @@
-console.log("🔥 LOCAL SERVER VERSION 3DECIMAL");
+console.log("🔥🔥🔥 RESET VERSION CHECK");
 console.log("✅ FILE MARK A");
 console.log("__filename =", __filename);
 const express = require("express");
