@@ -14,6 +14,20 @@ const fs = require("fs");
 
 const DATA_FILE = "./data.json";
 
+try {
+  require("fs").writeFileSync(
+    DATA_FILE,
+    JSON.stringify({
+      sessions: [],
+      members: [],
+      orders: []
+    })
+  );
+  console.log("🧹 data.json reset on boot");
+} catch (e) {
+  console.log("reset failed", e);
+}
+
 function loadData() {
   try {
     const raw = fs.readFileSync(DATA_FILE, "utf-8");
