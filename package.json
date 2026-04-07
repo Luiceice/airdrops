@@ -1,0 +1,22 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "main": "server.js",
+  "scripts": {
+  "dev": "node server.js",
+  "start": "node server.js",
+  "postinstall": "npx playwright install --with-deps"
+},
+  "dependencies": {
+    "axios": "^1.13.6",
+    "better-sqlite3": "^11.7.0",
+    "cheerio": "^1.2.0",
+    "cors": "^2.8.6",
+    "dayjs": "^1.11.20",
+    "dotenv": "^16.6.1",
+    "ethers": "^6.13.5",
+    "express": "^4.22.1",
+    "playwright": "^1.58.2",
+    "uuid": "^11.1.0"
+  }
+}
